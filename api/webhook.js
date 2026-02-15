@@ -94,7 +94,12 @@ export default async function handler(req, res) {
 
   for (const event of body.events) {
     const userId = event.source?.userId;
-    if (!userId) continue;
+    console.log('[webhook] event:', event.type, 'userId:', userId || 'MISSING', 'msgType:', event.message?.type);
+
+    if (!userId) {
+      console.log('[webhook] skip: no userId');
+      continue;
+    }
 
     let dbUser = null;
 
@@ -141,13 +146,15 @@ export default async function handler(req, res) {
         }
       }
     } else if (event.type === 'follow') {
+      console.log('[webhook] follow event, userId:', userId);
       if (supabase) {
-        await supabase.from('users').upsert({
+        const { error: upsErr } = await supabase.from('users').upsert({
           line_user_id: userId,
           display_name: null,
           picture_url: null,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'line_user_id' });
+        if (upsErr) console.error('[webhook] follow upsert error:', upsErr?.message);
       }
       try {
         await replyToLine(
@@ -157,6 +164,8 @@ export default async function handler(req, res) {
       } catch (e) {
         console.error('follow reply:', e);
       }
+    } else {
+      console.log('[webhook] unhandled event type:', event.type);
     }
   }
 }
