@@ -50,18 +50,31 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
+  console.log('[webhook] method:', req.method);
+
   if (req.method === 'GET') {
     return res.status(200).json({ status: 'ok', message: 'LINE Webhook - 액세서리 챗봇 CRM' });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const rawBody = await getRawBody(req);
+  let rawBody;
+  try {
+    rawBody = await getRawBody(req);
+    console.log('[webhook] rawBody length:', rawBody?.length);
+  } catch (e) {
+    console.error('[webhook] getRawBody error:', e);
+    return res.status(500).json({ error: 'Body read failed' });
+  }
+
   const signature = req.headers['x-line-signature'];
   if (!signature || !verifySignature(rawBody, signature)) {
+    console.error('[webhook] Invalid signature. Has sig:', !!signature, 'Has secret:', !!process.env.LINE_CHANNEL_SECRET);
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
   const body = JSON.parse(rawBody);
+  console.log('[webhook] events count:', body.events?.length, 'types:', body.events?.map((e) => e.type));
+
   if (!body.events || body.events.length === 0) {
     return res.status(200).send('OK');
   }
@@ -71,8 +84,9 @@ export default async function handler(req, res) {
   let supabase;
   try {
     supabase = getSupabase();
+    console.log('[webhook] Supabase connected');
   } catch (e) {
-    console.error('Supabase not configured:', e.message);
+    console.error('[webhook] Supabase init failed:', e.message);
   }
 
   const { data: settings } = supabase ? await supabase.from('settings').select('ai_mode').eq('id', 'global').single() : { data: null };
@@ -87,23 +101,32 @@ export default async function handler(req, res) {
     if (event.type === 'message' && event.message?.type === 'text') {
       const text = event.message.text;
       const replyToken = event.replyToken;
+      console.log('[webhook] message from', userId, ':', text?.slice(0, 30));
 
       if (supabase) {
-        let { data: user } = await supabase.from('users').select('id').eq('line_user_id', userId).single();
+        let { data: user, error: selErr } = await supabase.from('users').select('id').eq('line_user_id', userId).single();
+        if (selErr) console.log('[webhook] select user err:', selErr?.message);
         if (!user) {
           const { data: newUser, error: insErr } = await supabase.from('users').insert({
             line_user_id: userId,
             display_name: null,
             picture_url: null,
           }).select('id').single();
-          if (insErr) console.error('insert user:', insErr);
+          if (insErr) {
+            console.error('[webhook] insert user error:', insErr?.message, insErr?.code);
+          } else {
+            console.log('[webhook] new user created:', newUser?.id);
+          }
           user = newUser;
         }
         dbUser = user;
         if (user) {
-          await supabase.from('messages').insert({ user_id: user.id, content: text, direction: 'in' });
+          const { error: msgErr } = await supabase.from('messages').insert({ user_id: user.id, content: text, direction: 'in' });
+          if (msgErr) console.error('[webhook] insert message error:', msgErr?.message);
           await supabase.from('users').update({ updated_at: new Date().toISOString() }).eq('id', user.id);
         }
+      } else {
+        console.log('[webhook] skip DB (no supabase)');
       }
 
       if (aiMode) {
