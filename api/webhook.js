@@ -89,9 +89,14 @@ export default async function handler(req, res) {
     console.error('[webhook] Supabase init failed:', e.message);
   }
 
-  const { data: settings } = supabase ? await supabase.from('settings').select('ai_mode').eq('id', 'global').single() : { data: null };
-  const aiMode = settings?.ai_mode !== false;
+  let aiMode = true;
+  if (supabase) {
+    const { data: settings, error: setErr } = await supabase.from('settings').select('ai_mode').eq('id', 'global').single();
+    if (setErr) console.log('[webhook] settings query err:', setErr?.message);
+    else aiMode = settings?.ai_mode !== false;
+  }
 
+  console.log('[webhook] processing', body.events.length, 'events, aiMode:', aiMode);
   for (const event of body.events) {
     const userId = event.source?.userId;
     console.log('[webhook] event:', event.type, 'userId:', userId || 'MISSING', 'msgType:', event.message?.type);
