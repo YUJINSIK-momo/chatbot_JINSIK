@@ -1,0 +1,9 @@
+{
+  "name": "accessory-chatbot-line",
+  "version": "1.0.0",
+  "description": "라인 스타일 대시보드 + LINE Messaging API 액세서리 챗봇",
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3"
+  }
+}

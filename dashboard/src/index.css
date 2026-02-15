@@ -1,0 +1,21 @@
+:root {
+  --line-green: #06C755;
+  --line-green-dark: #05a847;
+  --line-green-light: #e8f8ed;
+  --sidebar-bg: #f7f7f7;
+  --text-primary: #1a1a1a;
+  --text-secondary: #667781;
+  --border: #e0e0e0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f0f0f0;
+  color: var(--text-primary);
+}
