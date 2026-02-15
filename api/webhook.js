@@ -79,8 +79,6 @@ export default async function handler(req, res) {
     return res.status(200).send('OK');
   }
 
-  res.status(200).send('OK');
-
   let supabase;
   try {
     supabase = getSupabase();
@@ -173,4 +171,6 @@ export default async function handler(req, res) {
       console.log('[webhook] unhandled event type:', event.type);
     }
   }
+
+  return res.status(200).send('OK');
 }
